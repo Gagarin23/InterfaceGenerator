@@ -1,19 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
 namespace InterfaceGenerator;
-
-[AttributeUsage(AttributeTargets.Class)]
-public class GenerateInterfaceAttribute : Attribute
-{
-
-}
 
 [Generator]
 public class Generator : ISourceGenerator
@@ -26,7 +22,7 @@ public class Generator : ISourceGenerator
     public void Execute(GeneratorExecutionContext context)
     {
         var compilation = context.Compilation;
-        var proxyAttributeSymbol = compilation.GetTypeByMetadataName(typeof(GenerateInterfaceAttribute).FullName);
+        var generateInterfaceAttributeSymbol = compilation.GetTypeByMetadataName(typeof(GenerateInterfaceAttribute).FullName);
 
         foreach (var tree in compilation.SyntaxTrees)
         {
@@ -35,7 +31,7 @@ public class Generator : ISourceGenerator
 
             foreach (var @class in classes)
             {
-                if (model.GetDeclaredSymbol(@class) is INamedTypeSymbol classSymbol && classSymbol.GetAttributes().Any(attr => attr.AttributeClass.Equals(proxyAttributeSymbol, SymbolEqualityComparer.Default)))
+                if (model.GetDeclaredSymbol(@class) is INamedTypeSymbol classSymbol && classSymbol.GetAttributes().Any(attr => attr.AttributeClass.Equals(generateInterfaceAttributeSymbol, SymbolEqualityComparer.Default)))
                 {
                     var interfaceName = "I" + classSymbol.Name;
                     var stringBuilder = new StringBuilder();
@@ -56,12 +52,8 @@ public class Generator : ISourceGenerator
                     GenerateEvents(events, stringBuilder);
 
                     stringBuilder.AppendLine("}");
-                    stringBuilder.AppendLine();
 
-                    stringBuilder.AppendLine($"public partial class {classSymbol.Name} : {interfaceName}");
-                    stringBuilder.AppendLine("{ }");
-
-                    context.AddSource(classSymbol.Name + ".g.cs", SourceText.From(stringBuilder.ToString(), Encoding.UTF8));
+                    context.AddSource($"I{classSymbol.Name}.g.cs", SourceText.From(stringBuilder.ToString(), Encoding.UTF8));
                 }
             }
         }
